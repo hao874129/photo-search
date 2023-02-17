@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import axios from 'axios'
 import Search from "./components/Search";
 import Picture from "./components/Picture";
@@ -10,45 +10,48 @@ const Homepage = () => {
   const [page, setPage] = useState(1)
   const auth = "8ozFdqgpjKlORXrDbessEcW9oQuO8Prp04ZbsA8pGoce3O6ulr9o01SX"
 
-  const search = async () => {
-    let newURL
+  const initialURL = useMemo(() => {
+    return `https://api.pexels.com/v1/curated?page=${page}&per_page=15`
+  }, [page])
+
+  const searchURL = useMemo(() => {
+    return `https://api.pexels.com/v1/search?query=${currentSearch}&page=${page}&per_page=15`
+  }, [currentSearch, page])
+
+  const search = useCallback((input) => {
     setPage(1)
-    if (input === '') {
-      newURL = `https://api.pexels.com/v1/curated?page=1&per_page=15`
-    } else {
-      newURL = `https://api.pexels.com/v1/search?query=${input}&page=1&per_page=15`
-    }
-    try {
-      let result = await axios.get(newURL, { headers: { Authorization: auth } })
-      setPhotos(result.data.photos)
-      setCurrentSearch(input)
-    } catch (e) {
-      console.log(e);
-    }
-  }
+    setCurrentSearch(input)
+  }, [])
 
-  /*eslint-disable*/
-  useEffect(() => { search() }, [])
+  const morePicture = useCallback(() => {
+    setPage(page + 1)
+  }, [page])
 
-  const morePicture = async () => {
-    let newURL
-    setPage(page+1)
-    if (currentSearch === '') {
-      newURL = `https://api.pexels.com/v1/curated?page=${page + 1}&per_page=15`
-    } else {
-      newURL = `https://api.pexels.com/v1/search?query=${currentSearch}&page=${page + 1}&per_page=15`
+  useEffect(() => {
+    async function fetchData() {
+      let newURL = ''
+      if (currentSearch === '') {
+        newURL = initialURL
+      } else {
+        newURL = searchURL
+      }
+      try {
+        let result = await axios.get(newURL, { headers: { Authorization: auth } })
+        if (page === 1) {
+          setPhotos(result.data.photos)
+        }else{
+          setPhotos(photos => (photos.concat(result.data.photos)))
+        }
+      } catch (e) {
+        console.log(e);
+      }
     }
-    try {
-      let result = await axios.get(newURL, { headers: { Authorization: auth } })
-      setPhotos(photos.concat(result.data.photos))
-    } catch (e) {
-      console.log(e);
-    }
-  }
+    fetchData()
+  }, [initialURL, searchURL, currentSearch,page])
 
   return (
     <div style={{ minHeight: "100vh" }}>
-      <Search search={() => { search() }} setInput={setInput} />
+      <Search search={() => { search(input) }} setInput={setInput} />
       <div className="pictures">
         {
           photos && photos.map(photo => (
